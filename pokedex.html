@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokédex - Edición Amarilla</title>
+    <!-- Importamos una fuente estilo 8-bits para el toque retro -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --pk-yellow: #f8d030;
+            --pk-bg: #282828;
+            --pk-screen: #e8f8e0;
+            --pk-text: #181818;
+            --pk-border: #000000;
+        }
+
+        body {
+            background-color: var(--pk-bg);
+            color: var(--pk-text);
+            font-family: 'Press Start 2P', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-size: 10px;
+        }
+
+        /* Contenedor principal estilo Game Boy / UI Retro */
+        .pokedex-container {
+            display: flex;
+            background-color: var(--pk-yellow);
+            width: 800px;
+            height: 500px;
+            border-radius: 10px;
+            border: 8px solid var(--pk-border);
+            box-shadow: 10px 10px 0px rgba(0,0,0,0.8);
+            padding: 20px;
+            gap: 20px;
+        }
+
+        /* Lista izquierda de 1 a 151 */
+        .list-section {
+            width: 40%;
+            background-color: var(--pk-screen);
+            border: 4px solid var(--pk-border);
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .list-item {
+            padding: 12px 10px;
+            cursor: pointer;
+            border-bottom: 2px dashed #999;
+            text-transform: uppercase;
+            transition: background 0.2s;
+        }
+
+        .list-item:hover {
+            background-color: #c0d8b0;
+        }
+
+        /* Pantalla derecha con información */
+        .details-section {
+            width: 60%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .screen {
+            background-color: var(--pk-screen);
+            border: 4px solid var(--pk-border);
+            height: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding: 10px;
+        }
+
+        /* Renderizado pixelado para mantener la calidad del sprite original */
+        .sprite {
+            width: 120px;
+            height: 120px;
+            image-rendering: pixelated;
+        }
+
+        .info-panel {
+            background-color: var(--pk-screen);
+            border: 4px solid var(--pk-border);
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+            line-height: 1.8;
+        }
+
+        h2 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        .stats {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 2px solid var(--pk-border);
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .location-section {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 2px solid var(--pk-border);
+        }
+
+        /* Estilos de la barra de desplazamiento */
+        ::-webkit-scrollbar { width: 12px; }
+        ::-webkit-scrollbar-track { background: var(--pk-screen); border-left: 2px solid var(--pk-border); }
+        ::-webkit-scrollbar-thumb { background: var(--pk-border); }
+    </style>
+</head>
+<body>
+
+<div class="pokedex-container">
+    <div class="list-section" id="pokemon-list">
+        Cargando Pokédex...
+    </div>
+    
+    <div class="details-section">
+        <div class="screen">
+            <img id="poke-sprite" class="sprite" src="" alt="?" style="display:none;">
+            <div id="poke-basic-info">
+                <h2 id="poke-name">Buscando...</h2>
+                <div id="poke-types" style="color: #555;"></div>
+            </div>
+        </div>
+        <div class="info-panel">
+            <div id="poke-desc">La información de la Pokédex aparecerá aquí.</div>
+            
+            <div class="stats" id="poke-stats">
+                <!-- Las estadísticas se inyectan aquí -->
+            </div>
+            
+            <div class="location-section">
+                <strong>ZONA DE CAPTURA:</strong>
+                <div id="poke-location" style="margin-top:8px; color: #d04030;">--</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const listElement = document.getElementById('pokemon-list');
+    
+    // Función de inicio: Carga los primeros 151 Pokémon
+    async function init() {
+        try {
+            const res = await fetch('https://pokeapi.co/api/v2/pokemon?limit=151');
+            const data = await res.json();
+            
+            listElement.innerHTML = ''; // Limpiar mensaje de carga
+            
+            data.results.forEach((poke, index) => {
+                const pokeId = index + 1;
+                const numStr = String(pokeId).padStart(3, '0');
+                
+                const div = document.createElement('div');
+                div.className = 'list-item';
+                div.innerText = `Nº${numStr} ${poke.name}`;
+                div.onclick = () => loadPokemon(pokeId);
+                
+                listElement.appendChild(div);
+            });
+            
+            // Cargar el #001 (Bulbasaur) por defecto
+            loadPokemon(1);
+        } catch (error) {
+            listElement.innerHTML = 'Error de conexión.';
+        }
+    }
+
+    // Cargar detalles al hacer clic
+    async function loadPokemon(id) {
+        document.getElementById('poke-desc').innerText = "Analizando...";
+        
+        try {
+            // 1. Datos base y estadísticas
+            const pRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+            const pData = await pRes.json();
+            
+            // 2. Datos de la especie (para el texto de la Pokédex)
+            const sRes = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`);
+            const sData = await sRes.json();
+            
+            // 3. Zonas de encuentro
+            const eRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}/encounters`);
+            const eData = await eRes.json();
+
+            // Actualizar Nombre y Número
+            document.getElementById('poke-name').innerText = `Nº${String(id).padStart(3, '0')} ${pData.name}`;
+            
+            // Buscar el Sprite original de la Generación 1 (Edición Amarilla)
+            const spriteUrl = pData.sprites.versions['generation-i'].yellow.front_default;
+            const img = document.getElementById('poke-sprite');
+            img.src = spriteUrl || pData.sprites.front_default; // Fallback si falla
+            img.style.display = 'block';
+
+            // Actualizar Tipos
+            document.getElementById('poke-types').innerText = pData.types.map(t => t.type.name.toUpperCase()).join(' / ');
+
+            // Formatear las estadísticas base (Salud, Ataque, Defensa, Vel, Especial)
+            const stats = pData.stats;
+            const hp = stats.find(s => s.stat.name === 'hp').base_stat;
+            const atk = stats.find(s => s.stat.name === 'attack').base_stat;
+            const def = stats.find(s => s.stat.name === 'defense').base_stat;
+            const spd = stats.find(s => s.stat.name === 'speed').base_stat;
+            // En la Gen 1, el Atq. Esp. y Def. Esp. eran un solo stat "Especial".
+            const spc = stats.find(s => s.stat.name === 'special-attack').base_stat; 
+
+            document.getElementById('poke-stats').innerHTML = `
+                <div class="stat-row"><span>SALUD:</span><span>${hp}</span></div>
+                <div class="stat-row"><span>ATAQUE:</span><span>${atk}</span></div>
+                <div class="stat-row"><span>DEFENSA:</span><span>${def}</span></div>
+                <div class="stat-row"><span>VELOCID:</span><span>${spd}</span></div>
+                <div class="stat-row"><span>ESPECIAL:</span><span>${spc}</span></div>
+            `;
+
+            // Buscar la entrada de la Pokédex (Priorizar amarillo/español)
+            let entry = sData.flavor_text_entries.find(e => e.language.name === 'es' && e.version.name === 'yellow');
+            if (!entry) entry = sData.flavor_text_entries.find(e => e.language.name === 'es');
+            if (!entry) entry = sData.flavor_text_entries.find(e => e.language.name === 'en');
+            
+            // Limpiar los saltos de línea raros que manda la API
+            const cleanDesc = entry ? entry.flavor_text.replace(/\f|\n|\r/g, ' ') : 'Sin datos registrados.';
+            document.getElementById('poke-desc').innerText = cleanDesc;
+
+            // Procesar las rutas de captura
+            let locations = 'Desconocida o por Intercambio/Evolución.';
+            if (eData.length > 0) {
+                // Tomamos un máximo de 3 rutas para no saturar la pantalla
+                locations = eData.slice(0, 3).map(e => 
+                    e.location_area.name.replace(/-/g, ' ').toUpperCase()
+                ).join(', ');
+                if (eData.length > 3) locations += ' (Y OTRAS...)';
+            }
+            document.getElementById('poke-location').innerText = locations;
+
+        } catch (error) {
+            console.error(error);
+            document.getElementById('poke-desc').innerText = "Error al cargar la información del Pokémon.";
+        }
+    }
+
+    // Arrancar la aplicación
+    init();
+</script>
+</body>
+</html>
